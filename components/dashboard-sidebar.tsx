@@ -67,7 +67,7 @@ export function DashboardSidebar({
           </div>
           <div className="hidden lg:block">
             <h1 className="text-lg font-bold text-sidebar-foreground">Vliz Support</h1>
-            <p className="text-xs text-muted-foreground">by oxcyshop</p>
+            <p className="text-xs text-muted-foreground">by vliz_vip</p>
           </div>
         </div>
       </div>
