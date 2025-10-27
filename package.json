@@ -2,7 +2,7 @@
   "name": "vliz-support-chat",
   "version": "1.0.0",
   "private": true,
-  "description": "Professional support chat system by oxcyshop",
+  "description": "Professional support chat system by vliz_vip",
   "scripts": {
     "build": "next build",
     "dev": "next dev",
@@ -12,7 +12,6 @@
     "@radix-ui/react-dropdown-menu": "latest",
     "@radix-ui/react-label": "latest",
     "@radix-ui/react-switch": "latest",
-    "@radix-ui/react-slot": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.454.0",

@@ -2,9 +2,10 @@
 import { useState, useRef, useEffect } from "react"
 import type React from "react"
 
-import { Send, Loader2, MessageSquare, Headphones, UserCircle, Download } from "lucide-react"
+import { Send, Loader2, MessageSquare, Headphones, UserCircle, Download, Paperclip } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { playNotificationSound, showDesktopNotification } from "@/lib/notification-sound"
+import { EmojiPicker } from "@/components/emoji-picker"
 
 const translations = {
   en: {
@@ -64,6 +65,7 @@ export function ChatInterface({ language, onShowToast, soundEnabled = true }: Ch
   const [sentMessages, setSentMessages] = useState<Set<string>>(new Set())
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const previousSupportCountRef = useRef(0)
   const previousPublicCountRef = useRef(0)
   const lastProcessedCountRef = useRef(0)
@@ -232,6 +234,61 @@ export function ChatInterface({ language, onShowToast, soundEnabled = true }: Ch
     }
   }
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 10 * 1024 * 1024) {
+      onShowToast(language === "en" ? "File too large (max 10MB)" : "Archivo muy grande (máx 10MB)", "error")
+      return
+    }
+
+    setIsSending(true)
+
+    try {
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        const base64 = event.target?.result as string
+        const messageToSend = `[FILE:${file.name}]${base64}`
+        const displayMessage = `📎 ${file.name}`
+
+        const response = await fetch("/api/messages/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ msg: chatType === "public" ? `[PUBLIC]${messageToSend}` : messageToSend }),
+        })
+
+        if (!response.ok) throw new Error("Failed to send file")
+
+        const newSentMessages = new Set(sentMessages)
+        newSentMessages.add(displayMessage)
+        setSentMessages(newSentMessages)
+        localStorage.setItem("vliz_sent_messages", JSON.stringify(Array.from(newSentMessages)))
+
+        if (soundEnabled) {
+          playNotificationSound()
+        }
+        onShowToast(language === "en" ? "File sent successfully!" : "¡Archivo enviado exitosamente!", "success")
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error("Error sending file:", error)
+      onShowToast(language === "en" ? "Failed to send file" : "Error al enviar archivo", "error")
+    } finally {
+      setIsSending(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+  }
+
+  const handleEmojiSelect = (emoji: string) => {
+    setInputMessage((prev) => prev + emoji)
+    if (inputRef.current) {
+      inputRef.current.focus()
+    }
+  }
+
   const downloadConversation = () => {
     const timestamp = new Date().toLocaleString()
     const messages = chatType === "support" ? supportMessages : publicMessages
@@ -347,6 +404,24 @@ export function ChatInterface({ language, onShowToast, soundEnabled = true }: Ch
 
       <div className="border-t border-border bg-card/50 backdrop-blur-sm p-4 md:p-6 transition-all duration-500">
         <form onSubmit={handleSendMessage} className="flex gap-3 items-end">
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleFileUpload}
+            className="hidden"
+            accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSending}
+            className="h-[52px] w-[52px] rounded-xl hover:bg-accent transition-all duration-300 hover:scale-110 disabled:opacity-50"
+          >
+            <Paperclip className="w-5 h-5" />
+          </Button>
+
           <div className="flex-1 relative">
             <textarea
               ref={inputRef}
@@ -360,6 +435,9 @@ export function ChatInterface({ language, onShowToast, soundEnabled = true }: Ch
               style={{ height: "52px" }}
             />
           </div>
+
+          <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+
           <Button
             type="submit"
             disabled={isSending || !inputMessage.trim()}
