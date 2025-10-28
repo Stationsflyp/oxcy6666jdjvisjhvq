@@ -15,6 +15,7 @@ const translations = {
     titleChat: "Chat",
     description: "Sign in to access your support dashboard",
     signInWithDiscord: "Sign in with Discord",
+    signingIn: "Signing in...",
     connectWithUs: "Connect with us",
     poweredBy: "Powered by vliz_vip",
     language: "Language",
@@ -22,12 +23,14 @@ const translations = {
     spanish: "Español",
     authError: "Authentication failed. Please try again.",
     genericError: "An error occurred.",
+    notVerified: "Your Discord account is not verified to access this dashboard. Please contact an administrator.",
   },
   es: {
     title: "Vliz Support ",
     titleChat: "Chat",
     description: "Inicia sesión para acceder a tu panel de soporte",
     signInWithDiscord: "Iniciar sesión con Discord",
+    signingIn: "Iniciando sesión...",
     connectWithUs: "Conéctate con nosotros",
     poweredBy: "Desarrollado por vliz_vip",
     language: "Idioma",
@@ -35,6 +38,8 @@ const translations = {
     spanish: "Español",
     authError: "Error de autenticación. Por favor intenta de nuevo.",
     genericError: "Ocurrió un error.",
+    notVerified:
+      "Tu cuenta de Discord no está verificada para acceder a este panel. Por favor contacta a un administrador.",
   },
 }
 
@@ -42,6 +47,7 @@ export default function Home() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(true)
+  const [isSigningIn, setIsSigningIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [language, setLanguage] = useState<"en" | "es">("es")
 
@@ -65,12 +71,28 @@ export default function Home() {
     }
 
     const errorParam = searchParams.get("error")
+    const messageParam = searchParams.get("message")
     if (errorParam) {
-      setError(errorParam === "auth_failed" ? t.authError : t.genericError)
+      if (errorParam === "not_verified") {
+        setError(
+          messageParam ||
+            (language === "en"
+              ? "Your Discord account is not verified to access this dashboard. Please contact an administrator."
+              : "Tu cuenta de Discord no está verificada para acceder a este panel. Por favor contacta a un administrador."),
+        )
+      } else if (errorParam === "auth_failed") {
+        setError(
+          language === "en"
+            ? "Authentication failed. Please try again."
+            : "Error de autenticación. Por favor intenta de nuevo.",
+        )
+      } else {
+        setError(language === "en" ? "An error occurred." : "Ocurrió un error.")
+      }
     }
 
     checkSession()
-  }, [router, searchParams])
+  }, [router, searchParams, language])
 
   const handleLanguageChange = (newLang: "en" | "es") => {
     setLanguage(newLang)
@@ -78,7 +100,10 @@ export default function Home() {
   }
 
   const handleDiscordLogin = () => {
-    window.location.href = getDiscordAuthUrl()
+    setIsSigningIn(true)
+    setTimeout(() => {
+      window.location.href = getDiscordAuthUrl()
+    }, 2000)
   }
 
   const t = translations[language]
@@ -141,13 +166,23 @@ export default function Home() {
 
           <Button
             onClick={handleDiscordLogin}
-            className="w-full bg-yellow-600 hover:bg-yellow-700 text-black font-semibold"
+            disabled={isSigningIn}
+            className="w-full bg-yellow-600 hover:bg-yellow-700 text-black font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
             size="lg"
           >
-            <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z" />
-            </svg>
-            {t.signInWithDiscord}
+            {isSigningIn ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                {t.signingIn}
+              </>
+            ) : (
+              <>
+                <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z" />
+                </svg>
+                {t.signInWithDiscord}
+              </>
+            )}
           </Button>
 
           <div className="pt-4 border-t border-zinc-800">

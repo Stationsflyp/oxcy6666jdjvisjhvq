@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { exchangeCodeForToken, getDiscordUser } from "@/lib/discord-auth"
+import { isUserAllowed } from "@/lib/allowed-users"
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -18,12 +19,24 @@ export async function GET(request: NextRequest) {
     const accessToken = await exchangeCodeForToken(code)
     const user = await getDiscordUser(accessToken)
 
+    if (!isUserAllowed(user.id)) {
+      return NextResponse.redirect(
+        new URL("/?error=not_verified&message=Your account is not verified to access this dashboard", request.url),
+      )
+    }
+
+    const isAnimated = user.avatar?.startsWith("a_")
+    const avatarExtension = isAnimated ? "gif" : "png"
+    const avatarUrl = user.avatar
+      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.${avatarExtension}?size=256`
+      : null
+
     // Create a session token
     const sessionToken = Buffer.from(
       JSON.stringify({
         userId: user.id,
         username: user.username,
-        avatar: user.avatar,
+        avatar: avatarUrl,
         timestamp: Date.now(),
       }),
     ).toString("base64")

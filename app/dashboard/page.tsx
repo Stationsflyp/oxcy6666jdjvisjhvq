@@ -10,6 +10,7 @@ import { ProfilePanel } from "@/components/profile-panel"
 import { MaintenanceScreen } from "@/components/maintenance-screen"
 import { ToastContainer, type ToastProps } from "@/components/ui/toast"
 import { Loader2 } from "lucide-react"
+import { UserManagementPanel } from "@/components/user-management-panel" // Import UserManagementPanel
 
 let toastIdCounter = 0
 function generateToastId() {
@@ -29,7 +30,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<DiscordUser | null>(null)
   const [language, setLanguage] = useState<"en" | "es">("en")
   const [toasts, setToasts] = useState<ToastProps[]>([])
-  const [activeView, setActiveView] = useState<"chat" | "settings" | "owner" | "profile">("chat")
+  const [activeView, setActiveView] = useState<"chat" | "settings" | "owner" | "profile" | "users">("chat")
   const [theme, setTheme] = useState<"dark" | "light">("dark")
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false)
@@ -58,7 +59,13 @@ export default function DashboardPage() {
         const maintenanceMode = localStorage.getItem("vliz_maintenance") === "true"
 
         setLanguage(storedLanguage || "en")
-        setTheme(storedTheme || "dark")
+        const theme = storedTheme || "dark"
+        setTheme(theme)
+        if (theme === "light") {
+          document.documentElement.classList.add("light")
+        } else {
+          document.documentElement.classList.remove("light")
+        }
         setSoundEnabled(storedSound !== "false")
         setIsMaintenanceMode(maintenanceMode)
         setIsLoading(false)
@@ -88,7 +95,11 @@ export default function DashboardPage() {
   const handleThemeChange = (newTheme: "dark" | "light") => {
     setTheme(newTheme)
     localStorage.setItem("vliz_theme", newTheme)
-    document.documentElement.classList.toggle("light", newTheme === "light")
+    if (newTheme === "light") {
+      document.documentElement.classList.add("light")
+    } else {
+      document.documentElement.classList.remove("light")
+    }
   }
 
   const handleSoundToggle = (enabled: boolean) => {
@@ -116,6 +127,7 @@ export default function DashboardPage() {
       <DashboardSidebar
         username={user.username}
         avatar={user.avatar}
+        userId={user.id} // Pass userId to sidebar
         language={language}
         activeView={activeView}
         onViewChange={setActiveView}
@@ -124,9 +136,11 @@ export default function DashboardPage() {
 
       <main className="flex-1 bg-background h-screen overflow-hidden">
         {activeView === "chat" && (
-          <ChatInterface language={language} onShowToast={showToast} soundEnabled={soundEnabled} />
+          <ChatInterface language={language} onShowToast={showToast} soundEnabled={soundEnabled} currentUser={user} />
         )}
         {activeView === "profile" && <ProfilePanel language={language} user={user} />}
+        {activeView === "users" && <UserManagementPanel language={language} onShowToast={showToast} />} // Use
+        UserManagementPanel
         {activeView === "settings" && (
           <SettingsPanel
             language={language}

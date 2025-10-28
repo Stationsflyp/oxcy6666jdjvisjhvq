@@ -31,9 +31,7 @@ interface ProfilePanelProps {
 
 export function ProfilePanel({ language, user }: ProfilePanelProps) {
   const t = translations[language]
-  const avatarUrl = user.avatar
-    ? `https://cdn.discordapp.com/avatars/${user.avatar.split("/")[0]}/${user.avatar}.png`
-    : "/logo.png"
+  const avatarUrl = user.avatar || "/logo.png"
 
   return (
     <div className="h-full overflow-y-auto bg-background">
@@ -51,7 +49,12 @@ export function ProfilePanel({ language, user }: ProfilePanelProps) {
           <CardContent className="space-y-6">
             <div className="flex items-center gap-6">
               <div className="relative h-24 w-24 rounded-full overflow-hidden ring-4 ring-primary/20">
-                <Image src={avatarUrl || "/placeholder.svg"} alt={user.username} fill className="object-cover" />
+                <Image
+                  src={avatarUrl || "/placeholder.svg"}
+                  alt={`${user.username} avatar`}
+                  fill
+                  className="object-cover"
+                />
               </div>
               <div className="space-y-2">
                 <div>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
 
 export async function POST(request: Request) {
   try {
@@ -9,17 +10,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid message" }, { status: 400 })
     }
 
+    const cookieStore = await cookies()
+    const sessionCookie = cookieStore.get("discord_session")
+    let userInfo = null
+
+    if (sessionCookie) {
+      try {
+        const session = JSON.parse(Buffer.from(sessionCookie.value, "base64").toString())
+        userInfo = {
+          userId: session.userId,
+          username: session.username,
+          avatar: session.avatar,
+        }
+      } catch (e) {
+        console.error("Error parsing session:", e)
+      }
+    }
+
     const backendUrl = process.env.BACKEND_URL || "http://theo.hidencloud.com:24642"
 
     console.log("Attempting to send message to:", `${backendUrl}/send`)
     console.log("Message:", msg)
+
+    const messageWithUser = userInfo ? `[USER:${JSON.stringify(userInfo)}]${msg}` : msg
 
     const response = await fetch(`${backendUrl}/send`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ msg }),
+      body: JSON.stringify({ msg: messageWithUser }),
     })
 
     console.log("Send response status:", response.status)

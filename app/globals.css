@@ -267,7 +267,6 @@
     }
   }
 
-  /* Added float animation for logo */
   @keyframes float {
     0%,
     100% {
@@ -290,7 +289,6 @@
     }
   }
 
-  /* Enhanced smooth animations */
   .animate-fade-in {
     animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -315,7 +313,6 @@
     animation: spin-slow 3s linear infinite;
   }
 
-  /* Added float and pulse-slow animations */
   .animate-float {
     animation: float 3s ease-in-out infinite;
   }

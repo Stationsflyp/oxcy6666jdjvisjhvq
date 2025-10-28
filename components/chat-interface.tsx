@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react"
 import type React from "react"
 
-import { Send, Loader2, MessageSquare, Headphones, UserCircle, Download, Paperclip } from "lucide-react"
+import { Send, Loader2, MessageSquare, Headphones, UserCircle, Download, Paperclip, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { playNotificationSound, showDesktopNotification } from "@/lib/notification-sound"
 import { EmojiPicker } from "@/components/emoji-picker"
@@ -54,9 +54,14 @@ interface ChatInterfaceProps {
   language: "en" | "es"
   onShowToast: (message: string, type: "success" | "error" | "info") => void
   soundEnabled?: boolean
+  currentUser?: {
+    userId: string
+    username: string
+    avatar: string | null
+  }
 }
 
-export function ChatInterface({ language, onShowToast, soundEnabled = true }: ChatInterfaceProps) {
+export function ChatInterface({ language, onShowToast, soundEnabled = true, currentUser }: ChatInterfaceProps) {
   const [chatType, setChatType] = useState<"support" | "public">("support")
   const [supportMessages, setSupportMessages] = useState<string[]>([])
   const [publicMessages, setPublicMessages] = useState<string[]>([])
@@ -70,6 +75,8 @@ export function ChatInterface({ language, onShowToast, soundEnabled = true }: Ch
   const previousPublicCountRef = useRef(0)
   const lastProcessedCountRef = useRef(0)
   const maintenanceProcessedRef = useRef(false)
+  const [deletingIndex, setDeletingIndex] = useState<number | null>(null)
+  const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null)
   const t = translations[language]
 
   useEffect(() => {
@@ -317,10 +324,83 @@ export function ChatInterface({ language, onShowToast, soundEnabled = true }: Ch
     onShowToast(t.downloaded, "success")
   }
 
+  const handleDeleteMessage = async (index: number) => {
+    setDeletingIndex(index)
+
+    try {
+      console.log("Deleting message at index:", index, "chatType:", chatType)
+
+      const response = await fetch("/api/messages/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index, chatType }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("Delete failed:", errorData)
+        throw new Error(errorData.error || "Failed to delete")
+      }
+
+      onShowToast(language === "en" ? "Message deleted successfully" : "Mensaje eliminado exitosamente", "success")
+
+      const messageToDelete = currentMessages[index]
+      if (messageToDelete && sentMessages.has(messageToDelete.trim())) {
+        const newSentMessages = new Set(sentMessages)
+        newSentMessages.delete(messageToDelete.trim())
+        setSentMessages(newSentMessages)
+        localStorage.setItem("vliz_sent_messages", JSON.stringify(Array.from(newSentMessages)))
+      }
+
+      // Force immediate refresh of messages
+      setTimeout(() => {
+        window.location.reload()
+      }, 500)
+
+      setDeleteConfirmIndex(null)
+    } catch (error) {
+      console.error("Error deleting message:", error)
+      onShowToast(language === "en" ? "Failed to delete message" : "Error al eliminar mensaje", "error")
+    } finally {
+      setDeletingIndex(null)
+    }
+  }
+
   const currentMessages = chatType === "support" ? supportMessages : publicMessages
 
   return (
     <div className="flex flex-col h-full">
+      {deleteConfirmIndex !== null && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 max-w-sm w-full animate-scale-in">
+            <h3 className="text-lg font-semibold mb-2">{language === "en" ? "Delete Message" : "Eliminar Mensaje"}</h3>
+            <p className="text-muted-foreground mb-6">
+              {language === "en"
+                ? "Are you sure you want to delete this message? This action cannot be undone."
+                : "¿Estás seguro de que quieres eliminar este mensaje? Esta acción no se puede deshacer."}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setDeleteConfirmIndex(null)} disabled={deletingIndex !== null}>
+                {language === "en" ? "Cancel" : "Cancelar"}
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleDeleteMessage(deleteConfirmIndex)}
+                disabled={deletingIndex !== null}
+              >
+                {deletingIndex !== null ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : language === "en" ? (
+                  "Delete"
+                ) : (
+                  "Eliminar"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="border-b border-border bg-card/50 backdrop-blur-sm px-4 py-3 flex flex-wrap gap-3 items-center justify-between transition-all duration-500">
         <div className="flex gap-2">
           <Button
@@ -364,10 +444,28 @@ export function ChatInterface({ language, onShowToast, soundEnabled = true }: Ch
           </div>
         ) : (
           currentMessages.map((message, index) => {
-            const isFromClient = sentMessages.has(message.trim())
-            const isEcho = !isFromClient && sentMessages.has(message.trim())
+            let displayMessage = message
+            let messageUser = null
+
+            if (message.startsWith("[USER:")) {
+              const userEndIndex = message.indexOf("]", 6)
+              if (userEndIndex !== -1) {
+                try {
+                  const userJson = message.substring(6, userEndIndex)
+                  messageUser = JSON.parse(userJson)
+                  displayMessage = message.substring(userEndIndex + 1)
+                } catch (e) {
+                  console.error("Error parsing user info:", e)
+                }
+              }
+            }
+
+            const isFromClient = sentMessages.has(displayMessage.trim())
+            const isEcho = !isFromClient && sentMessages.has(displayMessage.trim())
 
             if (isEcho) return null
+
+            const userAvatar = messageUser?.avatar || currentUser?.avatar
 
             return (
               <div
@@ -376,35 +474,62 @@ export function ChatInterface({ language, onShowToast, soundEnabled = true }: Ch
                   isFromClient
                     ? "justify-start items-start animate-slide-in-left"
                     : "justify-end items-end mt-3 animate-slide-in-right"
-                } transition-all duration-500 ease-out`}
+                } transition-all duration-500 ease-out group`}
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
                 {isFromClient && (
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg transition-all duration-500 hover:scale-110 hover:shadow-xl">
-                    <Headphones className="w-5 h-5 text-primary-foreground" />
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden shadow-lg transition-all duration-500 hover:scale-110 hover:shadow-xl">
+                    {userAvatar ? (
+                      <img
+                        src={userAvatar || "/placeholder.svg"}
+                        alt={messageUser?.username || currentUser?.username || "User"}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+                        <Headphones className="w-5 h-5 text-primary-foreground" />
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <div
-                  className={`max-w-[75%] md:max-w-[65%] rounded-2xl px-4 py-3 shadow-lg transition-all duration-500 ease-out hover:shadow-2xl hover:scale-[1.02] ${
-                    isFromClient
-                      ? "bg-card border border-border text-card-foreground rounded-tl-sm"
-                      : "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-tr-sm"
-                  }`}
-                  style={{
-                    overflowWrap: "break-word",
-                    wordBreak: "break-word",
-                    wordWrap: "break-word",
-                    overflowX: "hidden",
-                    maxWidth: "100%",
-                  }}
-                >
-                  <p
-                    className="text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words overflow-hidden"
-                    style={{ wordBreak: "break-word" }}
+                <div className="flex flex-col gap-1 max-w-[75%] md:max-w-[65%]">
+                  <div
+                    className={`rounded-2xl px-4 py-3 shadow-lg transition-all duration-500 ease-out hover:shadow-2xl hover:scale-[1.02] ${
+                      isFromClient
+                        ? "bg-card border border-border text-card-foreground rounded-tl-sm"
+                        : "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-tr-sm"
+                    }`}
+                    style={{
+                      overflowWrap: "break-word",
+                      wordBreak: "break-word",
+                      wordWrap: "break-word",
+                      overflowX: "hidden",
+                      maxWidth: "100%",
+                    }}
                   >
-                    {message}
-                  </p>
+                    {messageUser && <p className="text-xs font-semibold mb-1 opacity-70">{messageUser.username}</p>}
+                    <p
+                      className="text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words overflow-hidden"
+                      style={{ wordBreak: "break-word" }}
+                    >
+                      {displayMessage}
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setDeleteConfirmIndex(index)}
+                    disabled={deletingIndex === index}
+                    className={`self-${isFromClient ? "start" : "end"} opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-1 rounded hover:bg-destructive/10 disabled:opacity-50`}
+                    title={language === "en" ? "Delete message" : "Eliminar mensaje"}
+                  >
+                    {deletingIndex === index ? (
+                      <Loader2 className="w-4 h-4 text-destructive animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    )}
+                  </button>
                 </div>
 
                 {!isFromClient && (

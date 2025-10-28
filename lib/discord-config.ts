@@ -1,10 +1,10 @@
-// IMPORTANT: Change REDIRECT_URI to your production domain when deploying
+// IMPORTANT: Automatically detects localhost vs production
 export const DISCORD_CONFIG = {
   CLIENT_ID: "1432818764885393552",
-  CLIENT_SECRET: "TU_CLIENT_SECRET_AQUI", // Reemplaza esto con tu Client Secret de Discord
-  REDIRECT_URI: "http://localhost:3000/api/auth/discord/callback", // Cambia a tu dominio en producción
+  CLIENT_SECRET: "45vAg48zdhY7pO6xWcbIux74ejDbLyPT",
+  REDIRECT_URI:
+    typeof window !== "undefined" && window.location.hostname === "localhost"
+      ? "http://localhost:3000/api/auth/discord/callback"
+      : "https://vlizvipsupport.netlify.app/api/auth/discord/callback",
   SCOPES: "identify",
 }
-
-// Para producción, cambia REDIRECT_URI a:
-// "https://tudominio.com/api/auth/discord/callback"

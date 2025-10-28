@@ -1,6 +1,6 @@
 "use client"
 
-import { MessageSquare, Settings, Info, LogOut, Globe, User } from "lucide-react"
+import { MessageSquare, Settings, Info, LogOut, Globe, User, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
@@ -16,6 +16,7 @@ const translations = {
     language: "Language",
     english: "English",
     spanish: "Spanish",
+    userManagement: "User Management",
   },
   es: {
     chat: "Chat",
@@ -26,21 +27,26 @@ const translations = {
     language: "Idioma",
     english: "Inglés",
     spanish: "Español",
+    userManagement: "Gestión de Usuarios",
   },
 }
+
+const ADMIN_USER_IDS = ["998836610516914236", "452244710350782515"]
 
 interface DashboardSidebarProps {
   username: string
   avatar: string | null
+  userId: string // Added userId prop
   language: "en" | "es"
-  activeView: "chat" | "settings" | "owner" | "profile"
-  onViewChange: (view: "chat" | "settings" | "owner" | "profile") => void
+  activeView: "chat" | "settings" | "owner" | "profile" | "users"
+  onViewChange: (view: "chat" | "settings" | "owner" | "profile" | "users") => void
   onLanguageChange: (lang: "en" | "es") => void
 }
 
 export function DashboardSidebar({
   username,
   avatar,
+  userId, // Added userId
   language,
   activeView,
   onViewChange,
@@ -54,14 +60,17 @@ export function DashboardSidebar({
     router.push("/")
   }
 
+  const isAdmin = ADMIN_USER_IDS.includes(userId)
+
   const menuItems = [
     { id: "chat" as const, icon: MessageSquare, label: t.chat },
     { id: "profile" as const, icon: User, label: t.profile },
+    ...(isAdmin ? [{ id: "users" as const, icon: Users, label: t.userManagement }] : []),
     { id: "settings" as const, icon: Settings, label: t.settings },
     { id: "owner" as const, icon: Info, label: t.owner },
   ]
 
-  const avatarUrl = avatar ? `https://cdn.discordapp.com/avatars/${avatar.split("/")[0]}/${avatar}.png` : "/logo.png"
+  const avatarUrl = avatar || "/logo.png"
 
   return (
     <aside className="w-20 lg:w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
@@ -122,7 +131,7 @@ export function DashboardSidebar({
         {/* User info & logout */}
         <div className="hidden lg:flex items-center gap-3 p-3 bg-sidebar-accent rounded-lg">
           <div className="relative h-8 w-8 rounded-full overflow-hidden flex-shrink-0">
-            <Image src={avatarUrl || "/placeholder.svg"} alt={username} fill className="object-cover" />
+            <Image src={avatarUrl || "/placeholder.svg"} alt={`${username} avatar`} fill className="object-cover" />
           </div>
           <p className="text-sm font-medium text-sidebar-foreground truncate">{username}</p>
         </div>
